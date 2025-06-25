@@ -24,6 +24,16 @@
       transition: transform 0.1s;
       pointer-events: none;
     }
+    .background-layer {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+      pointer-events: none;
+    }
+
     #upload-form {
       position: absolute;
       top: 20px;
@@ -80,36 +90,11 @@
   <button onclick="upload()"> Upload</button>
 </div>
   
-<button id="gyroBtn">Enable Parallax</button>
-
 <div id="viewport">
   <div id="layer-container"></div>
 </div>
 
 <script>
-  window.addEventListener("deviceorientation", (e) => {
-  console.log("Tilt values", e.alpha, e.beta, e.gamma);
-});
-
-  document.getElementById('gyroBtn').addEventListener('click', () => {
-  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-    DeviceOrientationEvent.requestPermission()
-      .then(response => {
-        if (response === 'granted') {
-          window.addEventListener('deviceorientation', handleTilt);
-        } else {
-          alert("Motion permission not granted");
-        }
-      })
-      .catch(err => {
-        console.error("Permission error", err);
-        alert("Error requesting motion permission");
-      });
-  } else {
-    window.addEventListener('deviceorientation', handleTilt);
-  }
-});
-
 
 let layerContainer = document.getElementById('layer-container');
 
@@ -127,13 +112,22 @@ function upload() {
   .then(res => res.json())
   .then(json => {
     if (json.success) {
-      showLayers(json.data.layers);
+      console.log(json.data)
+      showLayers(json.data.layers, json.data.original);
+      initMotion();
     }
   });
 }
 
-function showLayers(layers) {
+function showLayers(layers, original) {
   layerContainer.innerHTML = '';  // Clear previous layers
+  // add background image
+  const bg = document.createElement('img');
+  bg.src = original
+  bg.className = 'background-layer';
+  bg.style.zIndex = '0';
+  layerContainer.appendChild(bg);
+
   layers.sort((a, b) => a.depth - b.depth);  // Back to front
 
   layers.forEach(layer => {
@@ -143,61 +137,70 @@ function showLayers(layers) {
     img.style.zIndex = Math.floor(layer.depth * 100);
     layerContainer.appendChild(img);
   });
-
-   // Add motion access button
-   const motionBtn = document.createElement('button');
-  motionBtn.innerText = "📱 Enable Parallax";
-  motionBtn.style.position = 'absolute';
-  motionBtn.style.bottom = '20px';
-  motionBtn.style.left = '50%';
-  motionBtn.style.transform = 'translateX(-50%)';
-  motionBtn.style.padding = '10px 20px';
-  motionBtn.style.borderRadius = '12px';
-  motionBtn.style.background = '#4CAF50';
-  motionBtn.style.color = 'white';
-  motionBtn.style.fontWeight = 'bold';
-
-  motionBtn.onclick = () => {
-    requestGyroPermission();
-    motionBtn.remove();
-  };
-
-  document.body.appendChild(motionBtn);
+  console.log("showing layers", layers);
 }
 
-function requestGyroPermission() {
-  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+function initMotion() {
+  if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    // iOS
     DeviceOrientationEvent.requestPermission()
       .then(response => {
         if (response === 'granted') {
           window.addEventListener('deviceorientation', handleTilt);
         } else {
-          alert("Motion permission not granted");
+          fallbackToMouse();
         }
       })
-      .catch(err => {
-        console.error("Permission error", err);
-        alert("Device motion access error.");
-      });
+      .catch(() => fallbackToMouse());
+  } else if (window.DeviceOrientationEvent) {
+    // Android or laptop with support
+    let triggered = false;
+    const testHandler = () => {
+      triggered = true;
+      window.removeEventListener('deviceorientation', testHandler);
+    };
+    window.addEventListener('deviceorientation', testHandler);
+    setTimeout(() => {
+      if (!triggered) {
+        fallbackToMouse();
+      }
+    }, 1000);
   } else {
-    // For Android and older iOS versions
-    window.addEventListener('deviceorientation', handleTilt);
+    fallbackToMouse();
   }
 }
 
-
 function handleTilt(event) {
-  const x = event.gamma || 0;  // left/right tilt
-  const y = event.beta || 0;   // forward/back tilt
+  const x = event.gamma || 0;  // Left/right tilt
+  const y = event.beta || 0;   // Forward/back tilt
 
+  updateParallax(x, y);
+}
+
+function fallbackToMouse() {
+  document.addEventListener("mousemove", e => {
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
+
+    const x = ((e.clientX - centerX) / centerX) * 45;
+    const y = ((e.clientY - centerY) / centerY) * 45;
+
+    updateParallax(x, y);
+  });
+}
+
+function updateParallax(x, y) {
+  // console.log(`Updating parallax: x=${x}, y=${y}`); // DEBUG
   const layers = document.querySelectorAll('.layer');
+  // console.log(`Found ${layers.length} layers`); // DEBUG
   layers.forEach((layer, i) => {
-    const depth = (i + 1) * 5;
-    const offsetX = x * depth * 0.1;
-    const offsetY = y * depth * 0.1;
+    const depth = (i + 1) * 3;
+    const offsetX = x * (depth / 10);
+    const offsetY = y * (depth / 10);
     layer.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
   });
 }
+
 </script>
 </body>
 </html>

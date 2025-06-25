@@ -155,6 +155,7 @@ class PostcardMaker:
         # Generate masks
         masks = self.create_depth_masks(image, horizon_y) # Get different layer masks [back, mid, fore]
         layers = []
+
         depth_values = [1, 0.7, 0.5] # Far to nea
 
         # Clean up old layers
@@ -163,8 +164,9 @@ class PostcardMaker:
                 os.remove(os.path.join(self.output_dir, file))
 
         # Extract layers
+        cv2.imwrite(os.path.join(self.output_dir, 'layer_og.png'), original_image) # Save original
+
         for i in range(self.num_layers):
-            
             layer_image = self.extract_layer(image, masks[i], layer_idx = i)
             layer_image = np.clip(layer_image, 0, 255).astype(np.uint8)
 
@@ -183,13 +185,13 @@ class PostcardMaker:
         
         return {
             'layers': layers,
+            'original':'/images/layer_og.png',
             'horizon_y': horizon_y,
             'image_dimensions': {
                 'width': image.shape[1],
                 'height': image.shape[0]
             }
         }
-
 
 if __name__ == '__main__':
     image_path = 'assets\istockphoto-1381637603-612x612.jpg'
