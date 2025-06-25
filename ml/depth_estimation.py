@@ -1,7 +1,7 @@
 '''
 Take in Images, perform create 3D lenticular effect from them
 '''
-import cv2, os
+import cv2, os, base64
 import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
@@ -26,7 +26,7 @@ class PostcardMaker:
         l,a,b = cv2.split(cv2.cvtColor(image, cv2.COLOR_BGR2LAB))
         l = cv2.createCLAHE(clipLimit=10.0, tileGridSize=(16,16)).apply(l) # Enhance image by CLAHE
         enhanced = cv2.merge([l, a, b])
-        return cv2.cvtColor(enhanced, cv2.COLOR_LAB2RGB)
+        return image, cv2.cvtColor(enhanced, cv2.COLOR_LAB2RGB)
 
     def detect_horizon_line(self, image: np.ndarray) -> int:
         '''
@@ -97,8 +97,8 @@ class PostcardMaker:
         combined_depth = (
             distance_mask * 0.4 +
             sharpness * 0.3 +
-            edge_density * 0.2 +
-            saturation * 0.1
+            edge_density * 0.3 +
+            saturation * 0.2 
         )
         
         # Create layer-specific masks
@@ -115,30 +115,27 @@ class PostcardMaker:
 
     def smooth_mask(self, mask):
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5,5), np.uint8))
-        mask = cv2.GaussianBlur(mask, (3, 3), 0)
+        mask = cv2.GaussianBlur(mask, (7, 7), sigmaX=3, sigmaY=3)
         return mask
 
     def extract_layer(self, image, mask, layer_idx) -> np.ndarray:
         '''
         Extract layer from image using mask
         '''
-
         # Apply mask
         masked_image = image.copy()
-        mask_3ch = cv2.merge([mask, mask, mask]) / 255.0 # Combine mask across rgb
 
-        masked_image = (masked_image * mask_3ch).astype(np.uint8)
-        
-        # Add subtle effects based on depth
-        if layer_idx == 0:  # Background - slightly desaturated and cooler
-            hsv = cv2.cvtColor(masked_image, cv2.COLOR_BGR2HSV).astype(np.float32)
-            hsv[:, :, 1] *= 0.8  # Reduce saturation
-            hsv[:, :, 0] = np.where(hsv[:, :, 0] > 0, hsv[:, :, 0] + 10, hsv[:, :, 0])  # Cooler hue
-            masked_image = cv2.cvtColor(np.clip(hsv, 0, 255).astype(np.uint8), cv2.COLOR_HSV2RGB)
-
-        elif layer_idx == 2:  # Foreground - slightly enhanced
+        # Make it 4 channel to avoid black outlines in layers
+        masked_image = cv2.merge([
+            masked_image[..., 0],
+            masked_image[..., 1],
+            masked_image[..., 2],
+            mask
+        ])
+                   
+        if layer_idx == 2:  # Foreground - slightly enhanced
             enhanced = cv2.convertScaleAbs(masked_image, alpha=1.1, beta=5)
-            masked_image = np.where(mask_3ch > 0.5, enhanced, masked_image).astype(np.uint8)
+            masked_image = np.where(masked_image > 0.5, enhanced, masked_image).astype(np.uint8)
         
         return masked_image
 
@@ -151,37 +148,30 @@ class PostcardMaker:
         original_image = image.copy()
 
         # Preprocess image and detect horizon line
-        image = self.preprocess_image(image)
-        horizon_y = self.detect_horizon_line(image)
+        image, enhanced = self.preprocess_image(image)
+        horizon_y = self.detect_horizon_line(enhanced)
 
         # Generate masks
         masks = self.create_depth_masks(image, horizon_y) # Get different layer masks [back, mid, fore]
-
-        image_layers = []
-        depth_values = [0.9, 0.5, 0.1] # Far to nea
+        layers = []
+        depth_values = [1, 0.7, 0.5] # Far to nea
 
         # Extract layers
         for i in range(self.num_layers):
-            layer_image = self.extract_layer(original_image, masks[i], layer_idx = i)
+            layer_image = self.extract_layer(image, masks[i], layer_idx = i)
+            layer_image = np.clip(layer_image, 0, 255).astype(np.uint8)
 
-            # Convert to base64 for frontend
-            _, buffer = cv2.imencode('.jpg', layer_image, [cv2.IMWRITE_JPEG_QUALITY, 85])
-            layer_b64 = base64.b64encode(buffer).decode('utf-8')
+            cv2.imwrite(f"frames/layer_{i}.png", layer_image)  # Save with alpha
             
             layers.append({
-                'image': f"data:image/jpeg;base64,{layer_b64}",
+                'image_url': f"frames/layer_{i}.png",
                 'depth': depth_values[i],
                 'name': ['background', 'midground', 'foreground'][i],
-                'scale': 1.0 + (i * 0.05)  # Slight scale difference (paralax effect)
+                'scale': 3.0 + (i * 0.05)  # Slight scale difference (paralax effect)
             })
-
-        # Convert original for reference
-        _, orig_buffer = cv2.imencode('.jpg', original_image, [cv2.IMWRITE_JPEG_QUALITY, 90])
-        original_b64 = base64.b64encode(orig_buffer).decode('utf-8')
         
         return {
             'layers': layers,
-            'original': f"data:image/jpeg;base64,{original_b64}",
             'horizon_y': horizon_y,
             'image_dimensions': {
                 'width': image.shape[1],
@@ -190,9 +180,7 @@ class PostcardMaker:
         }
 
 
-
 if __name__ == '__main__':
     image_path = 'assets\istockphoto-1381637603-612x612.jpg'
-    
     generator = PostcardMaker()
     package = generator.convert_image(image_path= image_path)
