@@ -7,9 +7,10 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 class PostcardMaker:
-    def __init__(self):
+    def __init__(self, output_dir="static_layers"):
         self.num_layers = 3 # Number of parallax layers
-        
+        self.output_dir = output_dir
+
     def preprocess_image(self, image):
         '''
         Convert image from phone to compatible size with more constrast for depth estimation
@@ -156,15 +157,25 @@ class PostcardMaker:
         layers = []
         depth_values = [1, 0.7, 0.5] # Far to nea
 
+        # Clean up old layers
+        for file in os.listdir(self.output_dir):
+            if file.startswith("layer_") and file.endswith(".png"):
+                os.remove(os.path.join(self.output_dir, file))
+
         # Extract layers
         for i in range(self.num_layers):
+            
             layer_image = self.extract_layer(image, masks[i], layer_idx = i)
             layer_image = np.clip(layer_image, 0, 255).astype(np.uint8)
 
-            cv2.imwrite(f"frames/layer_{i}.png", layer_image)  # Save with alpha
-            
+            layer_filename = f"layer_{i}.png"
+            layer_path = os.path.join(self.output_dir, layer_filename)
+            cv2.imwrite(layer_path, layer_image)
+
+            print(f'Saved layer{i}')
+
             layers.append({
-                'image_url': f"frames/layer_{i}.png",
+                'image_url': f"/images/layer_{i}.png",
                 'depth': depth_values[i],
                 'name': ['background', 'midground', 'foreground'][i],
                 'scale': 3.0 + (i * 0.05)  # Slight scale difference (paralax effect)

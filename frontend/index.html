@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>3D Postcard</title>
+  <style>
+    body, html {
+      margin: 0;
+      overflow: hidden;
+      background: white;
+    }
+    #layer-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      touch-action: none;
+    }
+    .layer {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.1s;
+      pointer-events: none;
+    }
+    #upload-form {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      background: white;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      text-align: center;
+      font-family: 'Arial', sans-serif;
+    }
+    #upload-form h2 {
+      margin-bottom: 10px;
+    }
+    #upload-form button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      background: #ff5ca2;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    #viewport {
+      width: 90vw;
+      height: 60vh;
+      position: absolute;
+      top: 200px;
+      left: 50%;
+      transform: translateX(-50%);
+      overflow: hidden;
+      border-radius: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      border: 2px solid #ddd;
+    }
+    #layer-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+
+
+  </style>
+</head>
+<body>
+
+<div id="upload-form">
+  <h2>Create Your 3D Postcard</h2>
+  <input type="file" id="file" />
+  <button onclick="upload()"> Upload</button>
+</div>
+  
+<button id="gyroBtn">Enable Parallax</button>
+
+<div id="viewport">
+  <div id="layer-container"></div>
+</div>
+
+<script>
+  window.addEventListener("deviceorientation", (e) => {
+  console.log("Tilt values", e.alpha, e.beta, e.gamma);
+});
+
+  document.getElementById('gyroBtn').addEventListener('click', () => {
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission()
+      .then(response => {
+        if (response === 'granted') {
+          window.addEventListener('deviceorientation', handleTilt);
+        } else {
+          alert("Motion permission not granted");
+        }
+      })
+      .catch(err => {
+        console.error("Permission error", err);
+        alert("Error requesting motion permission");
+      });
+  } else {
+    window.addEventListener('deviceorientation', handleTilt);
+  }
+});
+
+
+let layerContainer = document.getElementById('layer-container');
+
+function upload() {
+  const file = document.getElementById('file').files[0];
+  const formData = new FormData();
+  formData.append('file', file);
+
+  fetch('/process-depth', {
+    method: 'POST',
+    body: formData
+  })
+
+  
+  .then(res => res.json())
+  .then(json => {
+    if (json.success) {
+      showLayers(json.data.layers);
+    }
+  });
+}
+
+function showLayers(layers) {
+  layerContainer.innerHTML = '';  // Clear previous layers
+  layers.sort((a, b) => a.depth - b.depth);  // Back to front
+
+  layers.forEach(layer => {
+    const img = document.createElement('img');
+    img.src = layer.image_url;
+    img.className = 'layer';
+    img.style.zIndex = Math.floor(layer.depth * 100);
+    layerContainer.appendChild(img);
+  });
+
+   // Add motion access button
+   const motionBtn = document.createElement('button');
+  motionBtn.innerText = "📱 Enable Parallax";
+  motionBtn.style.position = 'absolute';
+  motionBtn.style.bottom = '20px';
+  motionBtn.style.left = '50%';
+  motionBtn.style.transform = 'translateX(-50%)';
+  motionBtn.style.padding = '10px 20px';
+  motionBtn.style.borderRadius = '12px';
+  motionBtn.style.background = '#4CAF50';
+  motionBtn.style.color = 'white';
+  motionBtn.style.fontWeight = 'bold';
+
+  motionBtn.onclick = () => {
+    requestGyroPermission();
+    motionBtn.remove();
+  };
+
+  document.body.appendChild(motionBtn);
+}
+
+function requestGyroPermission() {
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission()
+      .then(response => {
+        if (response === 'granted') {
+          window.addEventListener('deviceorientation', handleTilt);
+        } else {
+          alert("Motion permission not granted");
+        }
+      })
+      .catch(err => {
+        console.error("Permission error", err);
+        alert("Device motion access error.");
+      });
+  } else {
+    // For Android and older iOS versions
+    window.addEventListener('deviceorientation', handleTilt);
+  }
+}
+
+
+function handleTilt(event) {
+  const x = event.gamma || 0;  // left/right tilt
+  const y = event.beta || 0;   // forward/back tilt
+
+  const layers = document.querySelectorAll('.layer');
+  layers.forEach((layer, i) => {
+    const depth = (i + 1) * 5;
+    const offsetX = x * depth * 0.1;
+    const offsetY = y * depth * 0.1;
+    layer.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+  });
+}
+</script>
+</body>
+</html>
