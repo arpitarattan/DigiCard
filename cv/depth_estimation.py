@@ -4,7 +4,6 @@ Take in Images, perform create 3D lenticular effect from them
 import cv2, os, base64
 import numpy as np
 from PIL import Image
-import matplotlib.pyplot as plt
 
 class PostcardMaker:
     def __init__(self, output_dir="static_layers"):
