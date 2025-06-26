@@ -10,3 +10,4 @@ pycolmap==3.11.1
 pyrender==0.1.45
 trimesh==4.6.6
 uvicorn==0.34.3
+setuptools>=42
