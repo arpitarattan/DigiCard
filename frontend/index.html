@@ -143,11 +143,13 @@ function showLayers(layers, original) {
 function initMotion() {
   if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
     // iOS
+    console.log('Trying to use gyroscope')
     DeviceOrientationEvent.requestPermission()
       .then(response => {
         if (response === 'granted') {
           window.addEventListener('deviceorientation', handleTilt);
         } else {
+          console.log('Gyroscope failed')
           fallbackToMouse();
         }
       })
