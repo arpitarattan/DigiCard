@@ -7,96 +7,66 @@
       margin: 0;
       overflow: hidden;
       background: white;
+      height: 100vh;
     }
+
     #layer-container {
-      position: relative;
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 100vw;
       height: 100vh;
       overflow: hidden;
       touch-action: none;
     }
-    .layer {
+
+    .layer, .bgd {
       position: absolute;
       top: 0; left: 0;
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transition: transform 0.1s;
-      pointer-events: none;
-    }
-    .background-layer {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      z-index: 0;
+      transition: transform 0.05s;
       pointer-events: none;
     }
 
     #upload-form {
       position: absolute;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 10;
-      background: white;
-      padding: 20px;
-      border-radius: 16px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-      text-align: center;
-      font-family: 'Arial', sans-serif;
+      top: 20px; left: 20px;
+      z-index: 100;
+      background: rgba(255,255,255,0.8);
+      padding: 10px;
+      border-radius: 10px;
     }
-    #upload-form h2 {
-      margin-bottom: 10px;
-    }
-    #upload-form button {
-      margin-top: 10px;
-      padding: 10px 20px;
-      background: #ff5ca2;
+
+    #motion-btn {
+      position: absolute;
+      top: 20px; left: 200px;
+      z-index: 100;
+      padding: 10px;
+      border-radius: 10px;
+      background: #0077ff;
       color: white;
       border: none;
-      border-radius: 12px;
-      font-weight: bold;
-      cursor: pointer;
     }
-    #viewport {
-      width: 90vw;
-      height: 60vh;
-      position: absolute;
-      top: 200px;
-      left: 50%;
-      transform: translateX(-50%);
-      overflow: hidden;
-      border-radius: 20px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-      border: 2px solid #ddd;
-    }
-    #layer-container {
-      width: 100%;
-      height: 100%;
-      position: relative;
-      overflow: hidden;
-    }
-
-
   </style>
 </head>
 <body>
 
 <div id="upload-form">
-  <h2>Create Your 3D Postcard</h2>
   <input type="file" id="file" />
-  <button onclick="upload()"> Upload</button>
+  <button onclick="upload()">Upload</button>
 </div>
-  
-<div id="viewport">
-  <div id="layer-container"></div>
-</div>
+
+<button id="motion-btn">Enable Motion</button>
+<div id="layer-container"></div>
 
 <script>
-
 let layerContainer = document.getElementById('layer-container');
+let motionBtn = document.getElementById('motion-btn');
+
+let motionX = 0, motionY = 0;
+let targetX = 0, targetY = 0;
 
 function upload() {
   const file = document.getElementById('file').files[0];
@@ -107,102 +77,92 @@ function upload() {
     method: 'POST',
     body: formData
   })
-
-  
   .then(res => res.json())
   .then(json => {
     if (json.success) {
-      console.log(json.data)
       showLayers(json.data.layers, json.data.original);
-      initMotion();
+      motionBtn.style.display = 'block';
     }
-  });
+  })
+  .catch(err => console.error('Upload error', err));
 }
 
 function showLayers(layers, original) {
   layerContainer.innerHTML = '';  // Clear previous layers
-  // add background image
+
+  // Add background image
   const bg = document.createElement('img');
-  bg.src = original
-  bg.className = 'background-layer';
-  bg.style.zIndex = '0';
+  bg.src = original;
+  bg.className = 'bgd';
+  bg.style.zIndex = 0;
   layerContainer.appendChild(bg);
 
   layers.sort((a, b) => a.depth - b.depth);  // Back to front
 
-  layers.forEach(layer => {
+  layers.forEach((layer, i) => {
     const img = document.createElement('img');
     img.src = layer.image_url;
     img.className = 'layer';
-    img.style.zIndex = Math.floor(layer.depth * 100);
+    img.style.zIndex = 1 + i;
+    img.dataset.depth = layer.depth;
     layerContainer.appendChild(img);
   });
-  console.log("showing layers", layers);
 }
 
-function initMotion() {
-  if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
-    // iOS
-    console.log('Trying to use gyroscope')
+motionBtn.addEventListener('click', () => {
+  if (typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function') {
+
     DeviceOrientationEvent.requestPermission()
-      .then(response => {
-        if (response === 'granted') {
+      .then(state => {
+        if (state === 'granted') {
           window.addEventListener('deviceorientation', handleTilt);
+          motionBtn.style.display = 'none';
         } else {
-          console.log('Gyroscope failed')
-          fallbackToMouse();
+          alert("Motion permission not granted.");
         }
       })
-      .catch(() => fallbackToMouse());
-  } else if (window.DeviceOrientationEvent) {
-    // Android or laptop with support
-    let triggered = false;
-    const testHandler = () => {
-      triggered = true;
-      window.removeEventListener('deviceorientation', testHandler);
-    };
-    window.addEventListener('deviceorientation', testHandler);
-    setTimeout(() => {
-      if (!triggered) {
-        fallbackToMouse();
-      }
-    }, 1000);
+      .catch(console.error);
+
   } else {
-    fallbackToMouse();
+    // Fallback if not needed
+    window.addEventListener('deviceorientation', handleTilt);
+    motionBtn.style.display = 'none';
   }
+});
+
+// Fallback for desktop: mouse movement
+window.addEventListener('mousemove', e => {
+  const x = (e.clientX / window.innerWidth - 0.5) * 60;
+  const y = (e.clientY / window.innerHeight - 0.5) * 60;
+  targetX = x;
+  targetY = y;
+});
+
+function handleTilt(e) {
+  const x = e.gamma || 0;
+  const y = e.beta || 0;
+  targetX = x * 2;
+  targetY = y * 2;
 }
 
-function handleTilt(event) {
-  const x = event.gamma || 0;  // Left/right tilt
-  const y = event.beta || 0;   // Forward/back tilt
+function animateLayers() {
+  // Smooth transition
+  motionX += (targetX - motionX) * 0.05;
+  motionY += (targetY - motionY) * 0.05;
 
-  updateParallax(x, y);
-}
-
-function fallbackToMouse() {
-  document.addEventListener("mousemove", e => {
-    const centerX = window.innerWidth / 2;
-    const centerY = window.innerHeight / 2;
-
-    const x = ((e.clientX - centerX) / centerX) * 45;
-    const y = ((e.clientY - centerY) / centerY) * 45;
-
-    updateParallax(x, y);
-  });
-}
-
-function updateParallax(x, y) {
-  // console.log(`Updating parallax: x=${x}, y=${y}`); // DEBUG
-  const layers = document.querySelectorAll('.layer');
-  // console.log(`Found ${layers.length} layers`); // DEBUG
+  const layers = document.querySelectorAll('.layer, .bgd');
   layers.forEach((layer, i) => {
-    const depth = (i + 1) * 3;
-    const offsetX = x * (depth / 10);
-    const offsetY = y * (depth / 10);
+    const depth = parseFloat(layer.dataset.depth || (i + 1) * 0.5);
+    const offsetX = motionX * depth;
+    const offsetY = motionY * depth;
     layer.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
   });
+
+  requestAnimationFrame(animateLayers);
 }
 
+animateLayers();  // start animation loop
 </script>
 </body>
 </html>
