@@ -8,7 +8,7 @@ from PIL import Image
 class PostcardMaker:
     def __init__(self, output_dir="static_layers"):
         self.num_layers = 3 # Number of parallax layers
-        self.output_dir = output_dir
+        self.output_dir = os.path.join(output_dir, 'images')
 
     def preprocess_image(self, image):
         '''
@@ -177,19 +177,12 @@ class PostcardMaker:
 
             layers.append({
                 'image_url': f"/images/layer_{i}.png",
-                'depth': depth_values[i],
-                'name': ['background', 'midground', 'foreground'][i],
-                'scale': 3.0 + (i * 0.05)  # Slight scale difference (paralax effect)
+                'depth': depth_values[i]
             })
         
         return {
             'layers': layers,
-            'original':'/images/layer_og.png',
-            'horizon_y': horizon_y,
-            'image_dimensions': {
-                'width': image.shape[1],
-                'height': image.shape[0]
-            }
+            'original': f"/images/layer_og.png",
         }
 
 if __name__ == '__main__':

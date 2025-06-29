@@ -3,3 +3,6 @@ oldcode/
 wiggle.gif
 frames/
 backend/static_layers
+frontend/nodes
+frontend/assets
+frontend/vite.config.js

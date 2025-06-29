@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import uvicorn,tempfile, os, sys
 
@@ -15,11 +16,21 @@ from depth_estimation import PostcardMaker
 # Create FastAPI app
 app = FastAPI(title="3D Postcard Server")
 
-STATIC_DIR = os.path.join(current_dir, "static_layers")
-os.makedirs(STATIC_DIR, exist_ok=True)
+# Allow frontend (React) to talk to backend (FastAPI)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # React dev server
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Mount images for frontend access
-app.mount("/images", StaticFiles(directory=STATIC_DIR), name="images")
+STATIC_DIR = os.path.join(current_dir, "static_layers")
+IMAGES_DIR = os.path.join(STATIC_DIR, "images")
+
+os.makedirs(IMAGES_DIR, exist_ok=True)
+
+app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
 
 # Pass STATIC_DIR to PostcardMaker
 pmaker = PostcardMaker(output_dir=STATIC_DIR)
@@ -33,21 +44,16 @@ async def upload_image(file: UploadFile = File(...)):
     tmp.write(await file.read())
     tmp_path = tmp.name
     tmp.close()
-
+    
     try:
         package = pmaker.convert_image(image_path=tmp_path)
         return {
-            "success": True,
-            "data": package,
-            "filename": file.filename
+            "original": package["original"],
+            "layers": package["layers"]
         }
 
     finally:
         os.unlink(tmp_path)
-
-@app.get("/", response_class=HTMLResponse)
-async def index():
-    return open(os.path.join(parent_dir, "frontend/index.html")).read()
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

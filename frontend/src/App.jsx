@@ -1,35 +1,26 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useState } from 'react';
+import { uploadImage } from './api';
+import GyroParallax from './GyroParallax';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [layers, setLayers] = useState([]);
+  const [original, setOriginal] = useState("");
+
+  async function handleUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const result = await uploadImage(file);
+    setOriginal(result.original);
+    setLayers(result.layers);
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div>
+      <input type="file" onChange={handleUpload} />
+      {layers.length > 0 && <GyroParallax layers={layers} original={original} />}
+    </div>
+  );
 }
 
-export default App
+export default App;
