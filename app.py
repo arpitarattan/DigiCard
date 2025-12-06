@@ -20,7 +20,6 @@ st.markdown("<style>body {margin:0; overflow:hidden; background-color:#fef6e4;}<
 st.title("📬 Scrapbook Postcard Generator")
 user_text = st.text_input("Add a message to your postcard:", key="msg_input")
 
-# Optional stickers: hardcoded example
 stickers = {
     "Heart": "https://i.imgur.com/9Zq9x6R.png",
     "Star": "https://i.imgur.com/l1fXJwO.png",
@@ -28,11 +27,9 @@ stickers = {
 }
 selected_sticker = st.selectbox("Add a sticker:", ["None"] + list(stickers.keys()))
 
-# --- Image upload ---
 uploaded_file = st.file_uploader("Upload an image", type=["png","jpg","jpeg"], key="file_uploader")
 
 if uploaded_file:
-    # Loading animation
     loading = st.empty()
     loading.markdown("<h3 style='text-align:center;'>Processing your 3D scrapbook...</h3>", unsafe_allow_html=True)
     
@@ -41,7 +38,6 @@ if uploaded_file:
         tmp_path = tmp.name
 
     try:
-        # Process depth layers
         package = pmaker.convert_image(image_path=tmp_path)
 
         def get_base64(path):
@@ -54,23 +50,21 @@ if uploaded_file:
         original_b64 = get_base64(original_path)
         layers_b64 = [get_base64(layer) for layer in layers]
 
-        # Hide uploader/loading
         loading.empty()
         st.empty()
 
-        # --- Build full-screen scrapbook HTML ---
+        # --- Build HTML ---
         html_layers = ""
         for i, layer_b64 in enumerate(layers_b64):
             scale = 1 - i * 0.03
             html_layers += f'''
             <img src="data:image/png;base64,{layer_b64}" class="layer"
                  style="position:absolute; top:0; left:0; width:100%; height:100%;
-                        border:4px solid white; border-radius:12px;
-                        box-shadow:0 4px 12px rgba(0,0,0,0.2);
+                        border-radius:12px;
                         z-index:{i+1}; transition: transform 0.2s; transform: scale({scale});">
             '''
 
-        # Add user text
+        # User text
         text_html = ""
         if user_text:
             text_html = f'''
@@ -81,7 +75,7 @@ if uploaded_file:
             </div>
             '''
 
-        # Add sticker
+        # Sticker
         sticker_html = ""
         if selected_sticker != "None":
             sticker_url = stickers[selected_sticker]
@@ -91,19 +85,27 @@ if uploaded_file:
 
         html_code = f"""
         <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
-        <div class="parallax-container" 
-             style="position:fixed; top:0; left:0; width:100vw; height:100vh; overflow:hidden;">
-            <img src="data:image/png;base64,{original_b64}" class="bg-layer"
-                 style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; z-index:0; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.2);">
-            {html_layers}
-            {text_html}
-            {sticker_html}
+
+        <div class="parallax-container" style="position:fixed; top:0; left:0; width:100vw; height:100vh;
+             display:flex; justify-content:center; align-items:center;">
+            <!-- Card base -->
+            <div id="card" style="position:relative; width:80vw; max-width:600px; aspect-ratio:1.4;
+                 background:white; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,0.25); overflow:hidden;">
+                 
+                <img src="data:image/png;base64,{original_b64}" style="width:100%; height:100%; object-fit:cover; border-radius:12px; z-index:0; position:absolute; top:0; left:0;">
+
+                {html_layers}
+                {text_html}
+                {sticker_html}
+
+            </div>
             <button id="motion-btn" style="position:absolute; bottom:20px; left:20px; z-index:1000; padding:10px 15px; font-size:16px;">
                 Enable Motion
             </button>
         </div>
 
         <script>
+        const card = document.getElementById('card');
         const layers = document.querySelectorAll('.layer');
         const maxTranslate = 15;
 
@@ -112,8 +114,15 @@ if uploaded_file:
             const y = event.beta || 0;
             layers.forEach((layer, i) => {{
                 const depth = (i + 1) / layers.length;
-                const tx = Math.max(Math.min(x * depth, maxTranslate), -maxTranslate);
-                const ty = Math.max(Math.min(y * depth, maxTranslate), -maxTranslate);
+                let tx = x * depth;
+                let ty = y * depth;
+
+                // Clamp within card bounds
+                const maxX = (card.clientWidth - layer.clientWidth)/2 + maxTranslate;
+                const maxY = (card.clientHeight - layer.clientHeight)/2 + maxTranslate;
+                tx = Math.max(Math.min(tx, maxX), -maxX);
+                ty = Math.max(Math.min(ty, maxY), -maxY);
+
                 const scale = 1 - i*0.03;
                 layer.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ') rotate(' + (tx/20) + 'deg)';
             }});
