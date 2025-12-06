@@ -18,15 +18,15 @@ st.set_page_config(page_title="DigiCard", layout="wide")
 st.markdown("<style>body {margin:0; overflow:hidden; background-color:#ffc0cb;}</style>", unsafe_allow_html=True)
 
 st.markdown("""
-<h1 style="font-family:'Press Start 2P', cursive; text-align:center; color:#ff69b4; margin-top:20px;">
+<h1 style="font-family:'Amatic SC', cursive; text-align:center; color:#ff69b4; margin-top:20px; font-size:3em;">
 DigiCard
 </h1>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@700&display=swap" rel="stylesheet">
 """, unsafe_allow_html=True)
 
 # --- User input ---
 uploaded_file = st.file_uploader("Upload an image for your postcard:", type=["png","jpg","jpeg"])
-user_text = st.text_input("Add a message to your postcard:")
+user_text = st.text_input("Add your postcard message:")
 
 if uploaded_file and user_text:
     loading = st.empty()
@@ -61,21 +61,23 @@ if uploaded_file and user_text:
                     border-radius:12px; z-index:{i+1}; transition: transform 0.2s; transform: scale({scale});">
         '''
 
+    # Span text across the whole card
     text_html = f'''
     <div id="user-text" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
-                color:#fff; font-size:2em; font-family:'Patrick Hand', cursive;
-                text-align:center; z-index:100; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
+                color:#fff; font-size:3em; font-family:'Amatic SC', cursive;
+                text-align:center; width:90%; z-index:100; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
         {user_text}
     </div>
     '''
 
     html_code = f"""
-    <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@700&display=swap" rel="stylesheet">
 
     <div class="parallax-container" style="position:fixed; top:0; left:0; width:100vw; height:100vh;
          display:flex; justify-content:center; align-items:center;">
-        <div id="card" style="position:relative; width:90vw; height:90vh; background:white; 
-             border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,0.25); overflow:hidden;">
+        <!-- Horizontal postcard -->
+        <div id="card" style="position:relative; width:95vw; height:55vw; max-height:80vh; background:white; 
+             border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,0.25); overflow:hidden; display:flex; justify-content:center; align-items:center;">
             <img src="data:image/png;base64,{original_b64}" style="width:100%; height:100%; object-fit:cover; border-radius:12px; position:absolute; top:0; left:0; z-index:0;">
             {html_layers}
             {text_html}
