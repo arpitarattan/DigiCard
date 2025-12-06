@@ -1,6 +1,6 @@
 import streamlit as st
 import tempfile, os, sys, base64
-from cv.depth_estimation import PostcardMaker
+from depth_estimation import PostcardMaker
 import streamlit.components.v1 as components
 
 # --- Paths ---
@@ -113,12 +113,12 @@ if uploaded_file:
 
         // Gyro effect
         const handleMotion = (event) => {{
-            const x = event.gamma || 0;
-            const y = event.beta || 0;
+            const gyroX  = event.gamma || 0;
+            const gyroY  = event.beta || 0;
             layers.forEach((layer, i) => {{
                 const depth = (i + 1) / layers.length;
-                let tx = x * depth;
-                let ty = y * depth;
+                let tx = gyroX  * depth;
+                let ty = gyroY  * depth;
 
                 const maxX = (card.clientWidth - layer.clientWidth)/2 + maxTranslate;
                 const maxY = (card.clientHeight - layer.clientHeight)/2 + maxTranslate;
