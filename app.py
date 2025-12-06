@@ -1,6 +1,6 @@
 import streamlit as st
 import tempfile, os, sys, base64
-from depth_estimation import PostcardMaker
+from cv.depth_estimation import PostcardMaker
 import streamlit.components.v1 as components
 
 # --- Paths ---
