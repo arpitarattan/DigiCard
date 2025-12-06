@@ -2,6 +2,7 @@ import streamlit as st
 import tempfile, os, sys, base64
 from cv.depth_estimation import PostcardMaker
 import streamlit.components.v1 as components
+import time
 
 # --- Paths ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -13,16 +14,24 @@ STATIC_DIR = os.path.join(current_dir, "static_layers")
 os.makedirs(STATIC_DIR, exist_ok=True)
 pmaker = PostcardMaker(output_dir=STATIC_DIR)
 
+# --- Streamlit config ---
 st.set_page_config(page_title="3D Postcard Generator", layout="wide")
-st.title("3D Postcard Generator")
+st.markdown("<style>body {margin:0; overflow:hidden;}</style>", unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("Upload an image", type=["png","jpg","jpeg"])
+# --- Image upload ---
+uploaded_file = st.file_uploader("Upload an image", type=["png","jpg","jpeg"], key="file_uploader")
+
 if uploaded_file:
+    # Show loading animation
+    loading = st.empty()
+    loading.markdown("<h3 style='text-align:center;'>Processing your 3D postcard...</h3>", unsafe_allow_html=True)
+    
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
         tmp.write(uploaded_file.read())
         tmp_path = tmp.name
 
     try:
+        # Process depth layers
         package = pmaker.convert_image(image_path=tmp_path)
 
         def get_base64(path):
@@ -35,33 +44,43 @@ if uploaded_file:
         original_b64 = get_base64(original_path)
         layers_b64 = [get_base64(layer) for layer in layers]
 
-        # Build HTML with layers + button
+        # Hide uploader/loading
+        loading.empty()
+        st.empty()
+
+        # --- Full screen gyro postcard ---
         html_layers = ""
         for i, layer_b64 in enumerate(layers_b64):
             html_layers += f'''
             <img src="data:image/png;base64,{layer_b64}" class="layer" 
-                 style="position:absolute; top:0; left:0; width:100%; z-index:{i}; transition: transform 0.05s;">
+                 style="position:absolute; top:0; left:0; width:100%; height:100%;
+                        z-index:{i+1}; transition: transform 0.2s;">
             '''
 
         html_code = f"""
-        <div class="parallax-container" style="position:relative; width:100%; height:400px; overflow:hidden;">
+        <div class="parallax-container" 
+             style="position:fixed; top:0; left:0; width:100vw; height:100vh; overflow:hidden;">
             <img src="data:image/png;base64,{original_b64}" class="bg-layer" 
-                 style="width:100%; position:absolute; top:0; left:0;">
+                 style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; z-index:0;">
             {html_layers}
-            <button id="motion-btn" style="position:absolute; bottom:10px; left:10px; z-index:1000; padding:8px 12px;">
+            <button id="motion-btn" style="position:absolute; bottom:20px; left:20px; z-index:1000; padding:10px 15px; font-size:16px;">
                 Enable Motion
             </button>
         </div>
 
         <script>
         const layers = document.querySelectorAll('.layer');
+        const maxTranslate = 10; // limit motion to ±10px
+        const transitionTime = 0.2; // smooth transition in seconds
 
         const handleMotion = (event) => {{
             const x = event.gamma || 0;
             const y = event.beta || 0;
             layers.forEach((layer, i) => {{
-                const depth = (i + 1) * 5;
-                layer.style.transform = 'translate(' + (x*depth) + 'px,' + (y*depth) + 'px)';
+                const depth = (i + 1) / layers.length;
+                const tx = Math.max(Math.min(x * depth, maxTranslate), -maxTranslate);
+                const ty = Math.max(Math.min(y * depth, maxTranslate), -maxTranslate);
+                layer.style.transform = 'translate(' + tx + 'px,' + ty + 'px)';
             }});
         }};
 
@@ -71,6 +90,7 @@ if uploaded_file:
                     .then(permissionState => {{
                         if (permissionState === "granted") {{
                             window.addEventListener("deviceorientation", handleMotion);
+                            document.getElementById("motion-btn").style.display = "none";
                         }} else {{
                             alert("Permission denied");
                         }}
@@ -84,7 +104,7 @@ if uploaded_file:
         </script>
         """
 
-        components.html(html_code, height=400)
+        components.html(html_code, height=800)
 
     finally:
         os.unlink(tmp_path)
