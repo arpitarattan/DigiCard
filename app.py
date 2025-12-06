@@ -1,6 +1,7 @@
 import streamlit as st
 import tempfile, os, sys, base64
 from cv.depth_estimation import PostcardMaker
+import streamlit.components.v1 as components
 
 # --- Paths ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -29,13 +30,12 @@ if uploaded_file:
                 return base64.b64encode(f.read()).decode()
 
         layers = [os.path.join(STATIC_DIR, "images", os.path.basename(p['image_url'])) for p in package["layers"]]
-
-        # Prepare HTML with base64 images and scaling
-        html_layers = ""
         total_layers = len(layers)
+
+        html_layers = ""
         for i, layer in enumerate(layers):
             b64 = get_base64(layer)
-            scale = 1 - i * 0.05  # slightly smaller for background layers
+            scale = 1 - i*0.05
             z = total_layers - i
             html_layers += f'''
             <img src="data:image/png;base64,{b64}" 
@@ -52,22 +52,38 @@ if uploaded_file:
         </div>
         <script>
         const layers = document.querySelectorAll('#parallax-container img');
-        const maxTranslate = 20; // max px movement
-        window.addEventListener('deviceorientation', function(event) {{
-            let x = event.gamma || 0; // left-right tilt
-            let y = event.beta || 0;  // front-back tilt
+        const maxTranslate = 20;
+
+        function handleOrientation(event) {{
+            let x = event.gamma || 0;
+            let y = event.beta || 0;
             layers.forEach((layer, i) => {{
-                let depth = (i+1) / layers.length; // scale per layer
+                let depth = (i+1)/layers.length;
                 let tx = Math.max(Math.min(x*depth, maxTranslate), -maxTranslate);
                 let ty = Math.max(Math.min(y*depth, maxTranslate), -maxTranslate);
-                layer.style.transform = 'translate(' + tx + 'px,' + ty + 'px)' + 
-                                        ' scale(' + (1 - i*0.05) + ')';
+                layer.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + (1 - i*0.05) + ')';
             }});
-        }});
+        }}
+
+        // Request permission for iOS 13+ devices
+        if (typeof DeviceOrientationEvent !== 'undefined' &&
+            typeof DeviceOrientationEvent.requestPermission === 'function') {{
+            DeviceOrientationEvent.requestPermission()
+                .then(response => {{
+                    if (response === 'granted') {{
+                        window.addEventListener('deviceorientation', handleOrientation);
+                    }} else {{
+                        alert('Gyroscope permission denied');
+                    }}
+                }})
+                .catch(console.error);
+        }} else {{
+            // Non-iOS devices
+            window.addEventListener('deviceorientation', handleOrientation);
+        }}
         </script>
         """
 
-        import streamlit.components.v1 as components
         components.html(html_code, height=400)
 
     finally:
