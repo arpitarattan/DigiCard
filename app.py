@@ -2,7 +2,6 @@ import streamlit as st
 import tempfile, os, sys, base64
 from cv.depth_estimation import PostcardMaker
 import streamlit.components.v1 as components
-import time
 
 # --- Paths ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -48,13 +47,14 @@ if uploaded_file:
         loading.empty()
         st.empty()
 
-        # --- Full screen gyro postcard ---
+        # --- Full screen gyro postcard with scaling ---
         html_layers = ""
         for i, layer_b64 in enumerate(layers_b64):
+            scale = 1 - i * 0.03  # subtle scaling for depth effect
             html_layers += f'''
             <img src="data:image/png;base64,{layer_b64}" class="layer" 
                  style="position:absolute; top:0; left:0; width:100%; height:100%;
-                        z-index:{i+1}; transition: transform 0.2s;">
+                        z-index:{i+1}; transition: transform 0.2s; transform: scale({scale});">
             '''
 
         html_code = f"""
@@ -70,8 +70,7 @@ if uploaded_file:
 
         <script>
         const layers = document.querySelectorAll('.layer');
-        const maxTranslate = 10; // limit motion to ±10px
-        const transitionTime = 0.2; // smooth transition in seconds
+        const maxTranslate = 15; // slightly more movement
 
         const handleMotion = (event) => {{
             const x = event.gamma || 0;
@@ -80,7 +79,8 @@ if uploaded_file:
                 const depth = (i + 1) / layers.length;
                 const tx = Math.max(Math.min(x * depth, maxTranslate), -maxTranslate);
                 const ty = Math.max(Math.min(y * depth, maxTranslate), -maxTranslate);
-                layer.style.transform = 'translate(' + tx + 'px,' + ty + 'px)';
+                const scale = 1 - i*0.03;
+                layer.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')';
             }});
         }};
 
