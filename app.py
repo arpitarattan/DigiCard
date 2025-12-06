@@ -64,7 +64,7 @@ if uploaded_file and user_text:
     # Postcard text: Amatic SC
     text_html = f'''
     <div id="user-text" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
-                color:#333; font-size:3em; font-family:'Amatic SC', cursive;
+                color:#fff; font-size:3em; font-family:'Amatic SC', cursive;
                 text-align:center; width:90%; z-index:100; text-shadow: 2px 2px 4px rgba(255,255,255,0.5);">
         {user_text}
     </div>
@@ -92,7 +92,7 @@ if uploaded_file and user_text:
     <script>
     const card = document.getElementById('card');
     const layers = document.querySelectorAll('.layer');
-    const maxTranslate = 15;
+    const maxTranslate = 25;
 
     const handleMotion = (event) => {{
         const gyroX = event.gamma || 0;
