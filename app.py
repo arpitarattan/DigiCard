@@ -32,21 +32,23 @@ if uploaded_file:
         original_path = os.path.join(STATIC_DIR, "images", os.path.basename(package["original"]))
         layers = [os.path.join(STATIC_DIR, "images", os.path.basename(p['image_url'])) for p in package["layers"]]
 
-        # Encode images to base64
         original_b64 = get_base64(original_path)
         layers_b64 = [get_base64(layer) for layer in layers]
 
-        # Build HTML + JS using your React logic
+        # Build HTML with layers + button
         html_layers = ""
         for i, layer_b64 in enumerate(layers_b64):
-            html_layers += f'<img src="data:image/png;base64,{layer_b64}" class="layer" style="position:absolute; top:0; left:0; width:100%; z-index:{i}; transition: transform 0.05s;">'
+            html_layers += f'''
+            <img src="data:image/png;base64,{layer_b64}" class="layer" 
+                 style="position:absolute; top:0; left:0; width:100%; z-index:{i}; transition: transform 0.05s;">
+            '''
 
         html_code = f"""
         <div class="parallax-container" style="position:relative; width:100%; height:400px; overflow:hidden;">
-            <img src="data:image/png;base64,{original_b64}" class="bg-layer" style="width:100%; position:absolute; top:0; left:0;">
+            <img src="data:image/png;base64,{original_b64}" class="bg-layer" 
+                 style="width:100%; position:absolute; top:0; left:0;">
             {html_layers}
-            <button id="motion-btn" class="motion-button" 
-                    style="position:absolute; bottom:10px; left:10px; z-index:1000; padding:8px 12px;">
+            <button id="motion-btn" style="position:absolute; bottom:10px; left:10px; z-index:1000; padding:8px 12px;">
                 Enable Motion
             </button>
         </div>
@@ -59,7 +61,7 @@ if uploaded_file:
             const y = event.beta || 0;
             layers.forEach((layer, i) => {{
                 const depth = (i + 1) * 5;
-                layer.style.transform = `translate(${x * depth}px, ${y * depth}px)`;
+                layer.style.transform = 'translate(' + (x*depth) + 'px,' + (y*depth) + 'px)';
             }});
         }};
 
@@ -76,7 +78,6 @@ if uploaded_file:
                     .catch(console.error);
             }};
         }} else {{
-            // Desktop / non-iOS
             window.addEventListener("deviceorientation", handleMotion);
             document.getElementById("motion-btn").style.display = "none";
         }}
