@@ -21,9 +21,9 @@ st.title("📬 Scrapbook Postcard Generator")
 user_text = st.text_input("Add a message to your postcard:", key="msg_input")
 
 stickers = {
-    "Heart": "https://i.imgur.com/9Zq9x6R.png",
-    "Star": "https://i.imgur.com/l1fXJwO.png",
-    "Flower": "https://i.imgur.com/1m3Z3uO.png"
+    "Heart": "c:\Users\lenovo\AppData\Local\Temp\a086f6de9db88086d4268015294fcd9a-cool-sticker.webp",
+    "Star": "https://www.flaticon.com/free-stickers/star",
+    "Flower": "https://i.pinimg.com/originals/e5/f0/de/e5f0de6f7d0762cd08725ea9dfd7c487.png?odnHeight=117&odnWidth=117&odnBg=FFFFFFg"
 }
 selected_sticker = st.selectbox("Add a sticker:", ["None"] + list(stickers.keys()))
 
