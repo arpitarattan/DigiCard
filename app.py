@@ -29,57 +29,56 @@ if uploaded_file:
             with open(path, "rb") as f:
                 return base64.b64encode(f.read()).decode()
 
+        original_path = os.path.join(STATIC_DIR, "images", os.path.basename(package["original"]))
         layers = [os.path.join(STATIC_DIR, "images", os.path.basename(p['image_url'])) for p in package["layers"]]
-        total_layers = len(layers)
 
+        # Encode images to base64
+        original_b64 = get_base64(original_path)
+        layers_b64 = [get_base64(layer) for layer in layers]
+
+        # Build HTML + JS using your React logic
         html_layers = ""
-        for i, layer in enumerate(layers):
-            b64 = get_base64(layer)
-            scale = 1 - i*0.05
-            z = total_layers - i
-            html_layers += f'''
-            <img src="data:image/png;base64,{b64}" 
-                 style="position:absolute; top:0; left:0; width:100%; height:100%;
-                        transform: scale({scale});
-                        transform-origin: center center;
-                        transition: transform 0.1s;
-                        z-index:{z};">
-            '''
+        for i, layer_b64 in enumerate(layers_b64):
+            html_layers += f'<img src="data:image/png;base64,{layer_b64}" class="layer" style="position:absolute; top:0; left:0; width:100%; z-index:{i}; transition: transform 0.05s;">'
 
         html_code = f"""
-        <div id="parallax-container" style="position: relative; width: 100%; height: 400px; overflow: hidden;">
+        <div class="parallax-container" style="position:relative; width:100%; height:400px; overflow:hidden;">
+            <img src="data:image/png;base64,{original_b64}" class="bg-layer" style="width:100%; position:absolute; top:0; left:0;">
             {html_layers}
+            <button id="motion-btn" class="motion-button" 
+                    style="position:absolute; bottom:10px; left:10px; z-index:1000; padding:8px 12px;">
+                Enable Motion
+            </button>
         </div>
+
         <script>
-        const layers = document.querySelectorAll('#parallax-container img');
-        const maxTranslate = 20;
+        const layers = document.querySelectorAll('.layer');
 
-        function handleOrientation(event) {{
-            let x = event.gamma || 0;
-            let y = event.beta || 0;
+        const handleMotion = (event) => {{
+            const x = event.gamma || 0;
+            const y = event.beta || 0;
             layers.forEach((layer, i) => {{
-                let depth = (i+1)/layers.length;
-                let tx = Math.max(Math.min(x*depth, maxTranslate), -maxTranslate);
-                let ty = Math.max(Math.min(y*depth, maxTranslate), -maxTranslate);
-                layer.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + (1 - i*0.05) + ')';
+                const depth = (i + 1) * 5;
+                layer.style.transform = `translate(${x * depth}px, ${y * depth}px)`;
             }});
-        }}
+        }};
 
-        // Request permission for iOS 13+ devices
-        if (typeof DeviceOrientationEvent !== 'undefined' &&
-            typeof DeviceOrientationEvent.requestPermission === 'function') {{
-            DeviceOrientationEvent.requestPermission()
-                .then(response => {{
-                    if (response === 'granted') {{
-                        window.addEventListener('deviceorientation', handleOrientation);
-                    }} else {{
-                        alert('Gyroscope permission denied');
-                    }}
-                }})
-                .catch(console.error);
+        if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {{
+            document.getElementById("motion-btn").onclick = () => {{
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {{
+                        if (permissionState === "granted") {{
+                            window.addEventListener("deviceorientation", handleMotion);
+                        }} else {{
+                            alert("Permission denied");
+                        }}
+                    }})
+                    .catch(console.error);
+            }};
         }} else {{
-            // Non-iOS devices
-            window.addEventListener('deviceorientation', handleOrientation);
+            // Desktop / non-iOS
+            window.addEventListener("deviceorientation", handleMotion);
+            document.getElementById("motion-btn").style.display = "none";
         }}
         </script>
         """
