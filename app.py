@@ -2,8 +2,6 @@ import streamlit as st
 import tempfile, os, sys, base64
 from cv.depth_estimation import PostcardMaker
 import streamlit.components.v1 as components
-import urllib.parse
-import uuid
 
 # --- Paths ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -17,65 +15,43 @@ pmaker = PostcardMaker(output_dir=STATIC_DIR)
 
 # --- Streamlit config ---
 st.set_page_config(page_title="DigiCard", layout="wide")
-st.markdown("<style>body {margin:0; overflow:hidden; background-color:#f5e6d2;}</style>", unsafe_allow_html=True)
+st.markdown("<style>body {margin:0; overflow:hidden; background-color:#ffc0cb;}</style>", unsafe_allow_html=True)
 
 st.markdown("""
-<h1 style="font-family:'Press Start 2P', cursive; text-align:center; color:#a0522d; margin-top:20px;">
+<h1 style="font-family:'Press Start 2P', cursive; text-align:center; color:#ff69b4; margin-top:20px;">
 DigiCard
 </h1>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 """, unsafe_allow_html=True)
 
-# --- Handle URL parameters ---
-query_params = st.experimental_get_query_params()
-shared_id = query_params.get("id", [None])[0]
+# --- User input ---
+uploaded_file = st.file_uploader("Upload an image for your postcard:", type=["png","jpg","jpeg"])
+user_text = st.text_input("Add a message to your postcard:")
 
-if shared_id:
-    # Decode saved postcard from session state or a temp storage (simplified: use session_state)
-    saved = st.session_state.get(f"card_{shared_id}", None)
-    if saved:
-        original_b64 = saved["original"]
-        layers_b64 = saved["layers"]
-        user_text = saved["text"]
-    else:
-        st.error("This postcard does not exist.")
-        st.stop()
-else:
-    uploaded_file = st.file_uploader("Upload an image", type=["png","jpg","jpeg"])
-    user_text = st.text_input("Add your postcard message:")
+if uploaded_file and user_text:
+    loading = st.empty()
+    loading.markdown("<h3 style='text-align:center;'>Processing your 3D postcard...</h3>", unsafe_allow_html=True)
 
-    if uploaded_file and user_text:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
-            tmp.write(uploaded_file.read())
-            tmp_path = tmp.name
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+        tmp.write(uploaded_file.read())
+        tmp_path = tmp.name
 
-        package = pmaker.convert_image(image_path=tmp_path)
-        os.unlink(tmp_path)
+    package = pmaker.convert_image(image_path=tmp_path)
+    os.unlink(tmp_path)
 
-        def get_base64(path):
-            with open(path, "rb") as f:
-                return base64.b64encode(f.read()).decode()
+    def get_base64(path):
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
 
-        original_path = os.path.join(STATIC_DIR, "images", os.path.basename(package["original"]))
-        layers = [os.path.join(STATIC_DIR, "images", os.path.basename(p['image_url'])) for p in package["layers"]]
+    original_path = os.path.join(STATIC_DIR, "images", os.path.basename(package["original"]))
+    layers = [os.path.join(STATIC_DIR, "images", os.path.basename(p['image_url'])) for p in package["layers"]]
 
-        original_b64 = get_base64(original_path)
-        layers_b64 = [get_base64(layer) for layer in layers]
+    original_b64 = get_base64(original_path)
+    layers_b64 = [get_base64(layer) for layer in layers]
 
-        # Save to session_state for sharing
-        shared_id = str(uuid.uuid4())
-        st.session_state[f"card_{shared_id}"] = {
-            "original": original_b64,
-            "layers": layers_b64,
-            "text": user_text
-        }
+    loading.empty()
+    st.empty()
 
-        # Generate shareable link
-        share_url = f"{st.get_url()}?id={shared_id}"
-        st.success(f"Share your postcard with this link: {share_url}")
-
-# --- Display postcard ---
-if shared_id:
     html_layers = ""
     for i, layer_b64 in enumerate(layers_b64):
         scale = 1 - i * 0.03
@@ -85,18 +61,17 @@ if shared_id:
                     border-radius:12px; z-index:{i+1}; transition: transform 0.2s; transform: scale({scale});">
         '''
 
-    text_html = ""
-    if user_text:
-        text_html = f'''
-        <div id="user-text" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
-                    color:#333; font-size:2em; font-family:'Patrick Hand', cursive;
-                    text-align:center; z-index:100;">
-            {user_text}
-        </div>
-        '''
+    text_html = f'''
+    <div id="user-text" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
+                color:#fff; font-size:2em; font-family:'Patrick Hand', cursive;
+                text-align:center; z-index:100; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
+        {user_text}
+    </div>
+    '''
 
     html_code = f"""
     <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
+
     <div class="parallax-container" style="position:fixed; top:0; left:0; width:100vw; height:100vh;
          display:flex; justify-content:center; align-items:center;">
         <div id="card" style="position:relative; width:90vw; height:90vh; background:white; 
