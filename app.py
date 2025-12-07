@@ -92,7 +92,7 @@ if uploaded_file and user_text:
     <script>
     const card = document.getElementById('card');
     const layers = document.querySelectorAll('.layer');
-    const maxTranslate = 25;
+    const maxTranslate = 20;
 
     const handleMotion = (event) => {{
         const gyroX = event.gamma || 0;
